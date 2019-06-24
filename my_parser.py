@@ -10,6 +10,11 @@ class DataType(Enum):
     STR_ARRAY = 3
 
 
+class ParserItem(Enum):
+    VAR, CONST, STR_CONST, ADD, SUB, LT, LET, GT, GET, EQUAL, SET, \
+    IF1, IF2, WHILE, EMPTY, SEQ, EXPR, PROG, OPEREND, ARRAY = range(20)
+
+
 class Node:
     def __init__(self, kind, value=None, op1=None, op2=None, op3=None):
         self.kind = kind
@@ -34,15 +39,15 @@ class Parser(object):
 
     def term(self):
         if self.lexer.token.l_type == lexer.ID:
-            n = Node(Parser.VAR, self.lexer.token.lexeme)
+            n = Node(ParserItem.VAR, self.lexer.token.lexeme)
             self.lexer.step_token()
             return n
         elif self.lexer.token.l_type == lexer.NUM:
-            n = Node(Parser.CONST, self.lexer.token.lexeme)
+            n = Node(ParserItem.CONST, self.lexer.token.lexeme)
             self.lexer.step_token()
             return n
         elif self.lexer.token.l_type == lexer.STR:
-            n = Node(Parser.STR_CONST, self.lexer.token.lexeme)
+            n = Node(ParserItem.STR_CONST, self.lexer.token.lexeme)
             self.lexer.step_token()
             return n
         else:
@@ -52,9 +57,9 @@ class Parser(object):
         n = self.term()
         while self.lexer.token.l_type == lexer.PLUS or self.lexer.token.l_type == lexer.MINUS:
             if self.lexer.token.l_type == lexer.PLUS:
-                kind = Parser.ADD
+                kind = ParserItem.ADD
             else:
-                kind = Parser.SUB
+                kind = ParserItem.SUB
             self.lexer.step_token()
             n = Node(kind, op1=n, op2=self.term())
         return n
@@ -63,19 +68,19 @@ class Parser(object):
         n = self.summa()
         if self.lexer.token.l_type == lexer.LESS:
             self.lexer.step_token()
-            n = Node(Parser.LT, op1=n, op2=self.summa())
+            n = Node(ParserItem.LT, op1=n, op2=self.summa())
         elif self.lexer.token.l_type == lexer.MORE:
             self.lexer.step_token()
-            n = Node(Parser.GT, op1=n, op2=self.summa())
+            n = Node(ParserItem.GT, op1=n, op2=self.summa())
         elif self.lexer.token.l_type == lexer.MEQUAL:
             self.lexer.step_token()
-            n = Node(Parser.GET, op1=n, op2=self.summa())
+            n = Node(ParserItem.GET, op1=n, op2=self.summa())
         elif self.lexer.token.l_type == lexer.LEQUAL:
             self.lexer.step_token()
-            n = Node(Parser.LET, op1=n, op2=self.summa())
+            n = Node(ParserItem.LET, op1=n, op2=self.summa())
         elif self.lexer.token.l_type == lexer.EQ:
             self.lexer.step_token()
-            n = Node(Parser.EQUAL, op1=n, op2=self.summa())
+            n = Node(ParserItem.EQUAL, op1=n, op2=self.summa())
         return n
 
     # def check_array(self, node, data_types):
@@ -86,16 +91,16 @@ class Parser(object):
     #         self.check_expr(n, data_types)
 
     def check_expr(self, node, data_types):
-        if node.kind == Parser.VAR:
+        if node.kind == ParserItem.VAR:
             if node.value not in self.symbol_table:
                 self.error('Variable not initialized')
             else:
                 data_types.append(self.symbol_table[node.value])
-        elif node.kind == Parser.CONST:
+        elif node.kind == ParserItem.CONST:
             data_types.append(DataType.INT)
-        elif node.kind == Parser.STR_CONST:
+        elif node.kind == ParserItem.STR_CONST:
             data_types.append(DataType.STR)
-        elif node.kind == Parser.ARRAY:
+        elif node.kind == ParserItem.ARRAY:
             array_data_types = []
             self.check_expr(node.op2, array_data_types)
             if array_data_types[0] == DataType.INT:
@@ -117,9 +122,9 @@ class Parser(object):
             self.error('Type error')
 
     def check_synbol(self, node):
-        if node.kind == Parser.EXPR:
-            if node.op1.kind == Parser.SET:
-                if node.op1.op1.kind != Parser.VAR:
+        if node.kind == ParserItem.EXPR:
+            if node.op1.kind == ParserItem.SET:
+                if node.op1.op1.kind != ParserItem.VAR:
                     self.error('Variable expected')
                 else:
                     expr_types = []
@@ -134,20 +139,20 @@ class Parser(object):
         if self.lexer.token.l_type != lexer.ID:
             return self.test()
         n = self.test()
-        if n.kind == Parser.VAR and self.lexer.token.l_type == lexer.EQUAL:
+        if n.kind == ParserItem.VAR and self.lexer.token.l_type == lexer.EQUAL:
             self.lexer.step_token()
             if self.lexer.token.l_type == lexer.SBL:
                 array_var = n
-                n = Node(Parser.ARRAY)
+                n = Node(ParserItem.ARRAY)
                 self.lexer.step_token()
                 n.op1 = 0  # длина массива
-                n.op2 = Node(Parser.EMPTY)
+                n.op2 = Node(ParserItem.EMPTY)
                 node = n.op2
                 while self.lexer.token.l_type != lexer.EOF and self.lexer.token.l_type != lexer.SBR:
-                    st = Node(Parser.EMPTY, op1=self.expr())
+                    st = Node(ParserItem.EMPTY, op1=self.expr())
                     node.op1 = st
                     n.op1 += 1
-                    node.op2 = Node(Parser.EMPTY)
+                    node.op2 = Node(ParserItem.EMPTY)
                     node = node.op2
                     if self.lexer.token.l_type == lexer.SBR:
                         break
@@ -156,9 +161,9 @@ class Parser(object):
                     else:
                         self.error('"," expected')
                 self.lexer.step_token()
-                n = Node(Parser.SET, op1=array_var, op2=n)
+                n = Node(ParserItem.SET, op1=array_var, op2=n)
             else:
-                n = Node(Parser.SET, op1=n, op2=self.expr())
+                n = Node(ParserItem.SET, op1=n, op2=self.expr())
         self.check_synbol(n)
         return n
 
@@ -190,65 +195,65 @@ class Parser(object):
             elif len(self.lexer.token.lexeme) < self.tab_counter:
                 self.tab_counter = len(self.lexer.token.lexeme)
                 self.lexer.step_token()
-                return Node(Parser.OPEREND)
+                return Node(ParserItem.OPEREND)
             else:
                 self.lexer.step_token()
         elif self.tab_counter:
-            return Node(Parser.OPEREND)
+            return Node(ParserItem.OPEREND)
 
         if self.lexer.token.l_type == lexer.IF:
-            n = Node(Parser.IF1)
+            n = Node(ParserItem.IF1)
             self.lexer.step_token()
             n.op1 = self.expr()
             self.scope_syntax()
-            n.op2 = Node(Parser.EMPTY)
+            n.op2 = Node(ParserItem.EMPTY)
             node = n.op2
             while self.lexer.token.l_type != lexer.EOF:
-                st = Node(Parser.EMPTY, op1=self.statement())
-                if st.op1.kind == Parser.OPEREND:
+                st = Node(ParserItem.EMPTY, op1=self.statement())
+                if st.op1.kind == ParserItem.OPEREND:
                     break
                 node.op1 = st
-                node.op2 = Node(Parser.EMPTY)
+                node.op2 = Node(ParserItem.EMPTY)
                 node = node.op2
             if self.lexer.token.l_type == lexer.ELSE:
-                n.kind = Parser.IF2
+                n.kind = ParserItem.IF2
                 self.lexer.step_token()
                 self.scope_syntax()
-                n.op3 = Node(Parser.EMPTY)
+                n.op3 = Node(ParserItem.EMPTY)
                 node = n.op3
                 while self.lexer.token.l_type != lexer.EOF:
-                    st = Node(Parser.EMPTY, op1=self.statement())
-                    if st.op1.kind == Parser.OPEREND:
+                    st = Node(ParserItem.EMPTY, op1=self.statement())
+                    if st.op1.kind == ParserItem.OPEREND:
                         break
                     node.op1 = st
-                    node.op2 = Node(Parser.EMPTY)
+                    node.op2 = Node(ParserItem.EMPTY)
                     node = node.op2
         elif self.lexer.token.l_type == lexer.WHILE:
-            n = Node(Parser.WHILE)
+            n = Node(ParserItem.WHILE)
             self.lexer.step_token()
             n.op1 = self.expr()
             self.scope_syntax()
-            n.op2 = Node(Parser.EMPTY)
+            n.op2 = Node(ParserItem.EMPTY)
             node = n.op2
             while self.lexer.token.l_type != lexer.EOF:
-                st = Node(Parser.EMPTY, op1=self.statement())
-                if st.op1.kind == Parser.OPEREND:
+                st = Node(ParserItem.EMPTY, op1=self.statement())
+                if st.op1.kind == ParserItem.OPEREND:
                     break
                 node.op1 = st
-                node.op2 = Node(Parser.EMPTY)
+                node.op2 = Node(ParserItem.EMPTY)
                 node = node.op2
 
         elif self.lexer.token.l_type == lexer.COLON:
-            n = Node(Parser.EMPTY)
+            n = Node(ParserItem.EMPTY)
             self.lexer.step_token()
         elif self.lexer.token.l_type == lexer.LPAR:
-            n = Node(Parser.EMPTY)
+            n = Node(ParserItem.EMPTY)
             self.lexer.step_token()
             while self.lexer.token.l_type != lexer.RPAR:
-                n = Node(Parser.SEQ, op1=n, op2=self.statement())
+                n = Node(ParserItem.SEQ, op1=n, op2=self.statement())
             self.lexer.step_token()
         else:
-            n = Node(Parser.EXPR, op1=self.expr())
+            n = Node(ParserItem.EXPR, op1=self.expr())
             self.check_synbol(n)
             self.lexer.step_token()
 
@@ -256,12 +261,12 @@ class Parser(object):
 
     def parse(self):
         self.lexer.step_token()
-        node = Node(Parser.PROG)
+        node = Node(ParserItem.PROG)
         prog = node
         while self.lexer.token.l_type != lexer.EOF:
-            st = Node(Parser.EMPTY, op1=self.statement())
+            st = Node(ParserItem.EMPTY, op1=self.statement())
             node.op1 = st
-            node.op2 = Node(Parser.EMPTY)
+            node.op2 = Node(ParserItem.EMPTY)
             node = node.op2
         # if (self.lexer.token.l_type != lexer.EOF):
         #     self.error("Invalid statement syntax")
